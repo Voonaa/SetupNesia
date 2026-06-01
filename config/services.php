@@ -36,9 +36,16 @@ return [
     ],
 
     'midtrans' => [
-        'server_key' => env('MIDTRANS_SERVER_KEY'),
-        'client_key' => env('MIDTRANS_CLIENT_KEY'),
+        'server_key'    => env('MIDTRANS_SERVER_KEY'),
+        'client_key'    => env('MIDTRANS_CLIENT_KEY'),
         'is_production' => env('MIDTRANS_IS_PRODUCTION', false),
+    ],
+
+    'qris' => [
+        'dana_number'   => env('QRIS_DANA_NUMBER', '0895629350777'),
+        'merchant_name' => env('QRIS_MERCHANT_NAME', 'SetupNesia'),
+        'merchant_city' => env('QRIS_MERCHANT_CITY', 'Jakarta'),
+        'merchant_code' => env('QRIS_MERCHANT_CODE', '5999'), // 5999 = Misc. General Merchandise
     ],
 
 ];

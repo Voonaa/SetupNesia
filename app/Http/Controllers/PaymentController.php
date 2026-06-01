@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Services\MidtransService;
 use App\Services\OrderService;
+use App\Services\QrisService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,15 +16,17 @@ class PaymentController extends Controller
 {
     protected MidtransService $midtransService;
     protected OrderService $orderService;
+    protected QrisService $qrisService;
 
-    public function __construct(MidtransService $midtransService, OrderService $orderService)
+    public function __construct(MidtransService $midtransService, OrderService $orderService, QrisService $qrisService)
     {
         $this->midtransService = $midtransService;
-        $this->orderService = $orderService;
+        $this->orderService    = $orderService;
+        $this->qrisService     = $qrisService;
     }
 
     /**
-     * Generate a Snap payment token for the given order.
+     * Generate a Snap payment token for the given order (Midtrans).
      *
      * @param \App\Models\Order $order
      * @return \Illuminate\Http\JsonResponse
@@ -49,6 +52,40 @@ class PaymentController extends Controller
             return response()->json(['token' => $token]);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Generate a standalone QRIS QR code (Dana merchant) for the given order.
+     * No external API required — works fully offline.
+     *
+     * @param \App\Models\Order $order
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function generateQris(Order $order): JsonResponse
+    {
+        // Authorization: Ensure order belongs to logged in user
+        if ($order->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized action.'], 403);
+        }
+
+        if ($order->status !== 'pending') {
+            return response()->json(['message' => 'Order is not in pending state.'], 422);
+        }
+
+        try {
+            $order = $this->orderService->getOrderById($order->id);
+            $qrisSvgBase64 = $this->qrisService->generateQrisImage($order);
+
+            return response()->json([
+                'qris_image'  => 'data:image/svg+xml;base64,' . $qrisSvgBase64,
+                'amount'      => $order->total_price,
+                'order_number'=> $order->order_number,
+                'expired_at'  => now()->addMinutes(15)->format('H:i'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('QRIS Generation Error', ['order' => $order->order_number, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Gagal generate QRIS: ' . $e->getMessage()], 500);
         }
     }
 

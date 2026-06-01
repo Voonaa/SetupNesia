@@ -158,91 +158,196 @@
                     </div>
                 </div>
 
-                <!-- Midtrans QRIS Live Payment Box (Only when status is pending) -->
+                {{-- QRIS Payment Box (Only when status is pending) --}}
                 @if($order->status === 'pending')
                     <div class="bg-[#1E293B]/50 backdrop-blur-md border border-purple-500/25 rounded-2xl p-6 shadow-xl relative overflow-hidden">
                         <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500"></div>
-                        
+
                         <h3 class="font-extrabold text-base text-slate-100 flex items-center space-x-2 border-b border-slate-800 pb-3 mb-4">
                             <span class="p-1.5 bg-purple-500/10 border border-purple-500/25 rounded-lg text-purple-400">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                 </svg>
                             </span>
-                            <span>Payment Method: QRIS</span>
+                            <span>Bayar dengan QRIS</span>
                         </h3>
 
-                        <div class="space-y-4">
+                        {{-- State: Belum generate QR --}}
+                        <div id="qris-initial" class="space-y-4">
                             <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
                                 <div class="flex justify-between items-center text-xs">
-                                    <span class="text-slate-400 font-semibold">Payment Status</span>
-                                    <span class="text-amber-400 font-extrabold uppercase tracking-wide">Awaiting Payment</span>
+                                    <span class="text-slate-400 font-semibold">Total Pembayaran</span>
+                                    <span class="text-purple-400 font-extrabold text-base">Rp {{ number_format($order->total_price, 0, ',', '.') }}</span>
                                 </div>
                                 <div class="flex justify-between items-center text-xs">
-                                    <span class="text-slate-400 font-semibold">Gateway</span>
-                                    <span class="text-purple-400 font-bold">Midtrans Snap</span>
+                                    <span class="text-slate-400 font-semibold">Order ID</span>
+                                    <span class="text-slate-200 font-bold font-mono">{{ $order->order_number }}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="text-slate-400 font-semibold">Metode</span>
+                                    <span class="text-green-400 font-bold">QRIS (GoPay / OVO / Dana / dll)</span>
                                 </div>
                             </div>
 
-                            <button id="pay-button" class="w-full inline-flex items-center justify-center px-6 py-3.5 bg-gradient-to-r from-purple-600 to-blue-600 border border-transparent rounded-xl font-bold text-xs text-white uppercase tracking-widest hover:from-purple-500 hover:to-blue-500 active:from-purple-700 active:to-blue-700 transition duration-150 shadow-lg shadow-purple-500/20 cursor-pointer">
-                                Pay Now with QRIS
+                            <button id="btn-generate-qris"
+                                class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-purple-600 to-blue-600 border border-transparent rounded-xl font-bold text-xs text-white uppercase tracking-widest hover:from-purple-500 hover:to-blue-500 transition duration-150 shadow-lg shadow-purple-500/20 cursor-pointer">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01" />
+                                </svg>
+                                Tampilkan Kode QRIS
                             </button>
 
-                            <div class="text-slate-400 text-3xs font-semibold uppercase tracking-wider text-center mt-2">
-                                🔒 Secured & Encrypted via Midtrans Sandbox
+                            <div class="text-slate-500 text-xs font-semibold text-center">
+                                🔒 Diterima oleh GoPay, OVO, Dana, LinkAja, ShopeePay & semua bank
                             </div>
                         </div>
 
-                        <script src="{{ config('services.midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}" data-client-key="{{ config('services.midtrans.client_key') }}"></script>
-                        <script>
-                            document.getElementById('pay-button').onclick = function (e) {
-                                e.preventDefault();
-                                
-                                const button = this;
-                                button.disabled = true;
-                                const originalText = button.innerText;
-                                button.innerText = 'GENERATING PAYMENT CODE...';
+                        {{-- State: Loading --}}
+                        <div id="qris-loading" class="hidden text-center py-8 space-y-3">
+                            <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-purple-500"></div>
+                            <p class="text-slate-400 text-sm font-semibold">Generating QRIS Code...</p>
+                        </div>
 
-                                fetch('{{ route('payment.snap-token', $order->id) }}', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                                    }
-                                })
-                                .then(response => {
-                                    if (!response.ok) {
-                                        return response.json().then(err => { throw new Error(err.message || 'Failed to generate snap token.'); });
-                                    }
-                                    return response.json();
-                                })
-                                .then(data => {
-                                    button.disabled = false;
-                                    button.innerText = originalText;
-                                    
-                                    snap.pay(data.token, {
-                                        onSuccess: function(result) {
-                                            window.location.href = "{{ route('payment.finish') }}?order_id={{ $order->order_number }}";
-                                        },
-                                        onPending: function(result) {
-                                            window.location.href = "{{ route('payment.unfinish') }}?order_id={{ $order->order_number }}";
-                                        },
-                                        onError: function(result) {
-                                            window.location.href = "{{ route('payment.error') }}?order_id={{ $order->order_number }}";
-                                        },
-                                        onClose: function() {
-                                            // Customer closed popup without paying
-                                        }
-                                    });
-                                })
-                                .catch(error => {
-                                    button.disabled = false;
-                                    button.innerText = originalText;
-                                    alert('Payment initialization failed: ' + error.message);
-                                });
-                            };
-                        </script>
+                        {{-- State: QR Code tampil --}}
+                        <div id="qris-display" class="hidden space-y-4">
+                            {{-- Info Bar --}}
+                            <div class="p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex justify-between items-center text-xs">
+                                <span class="text-slate-400 font-semibold">Total</span>
+                                <span class="text-purple-400 font-extrabold">Rp {{ number_format($order->total_price, 0, ',', '.') }}</span>
+                            </div>
+
+                            {{-- QR Code Container --}}
+                            <div class="flex flex-col items-center bg-white rounded-2xl p-4 shadow-inner border-4 border-purple-500/30">
+                                {{-- QRIS Logo --}}
+                                <div class="flex items-center gap-2 mb-3">
+                                    <div class="bg-red-600 text-white font-extrabold text-xs px-2 py-0.5 rounded">QRIS</div>
+                                    <span class="text-slate-500 text-xs font-bold">SetupNesia</span>
+                                </div>
+
+                                {{-- QR Image --}}
+                                <img id="qris-img" src="" alt="QRIS Code" class="w-52 h-52 object-contain rounded-xl">
+
+                                {{-- Merchant Name --}}
+                                <p class="text-slate-600 text-xs font-bold mt-2 text-center">SetupNesia Store</p>
+                                <p class="text-slate-400 text-xs font-mono">{{ $order->order_number }}</p>
+                            </div>
+
+                            {{-- Timer --}}
+                            <div class="flex items-center justify-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                                <svg class="h-4 w-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-amber-400 text-xs font-bold">
+                                    QR aktif selama <span id="qris-countdown" class="font-mono text-amber-300">15:00</span>
+                                </span>
+                            </div>
+
+                            {{-- Instruction --}}
+                            <div class="text-center space-y-1">
+                                <p class="text-slate-300 text-xs font-bold">Cara Bayar:</p>
+                                <p class="text-slate-400 text-xs">1. Buka aplikasi e-wallet atau m-banking</p>
+                                <p class="text-slate-400 text-xs">2. Pilih fitur <strong class="text-slate-200">Scan QR / QRIS</strong></p>
+                                <p class="text-slate-400 text-xs">3. Arahkan kamera ke QR code di atas</p>
+                                <p class="text-slate-400 text-xs">4. Konfirmasi jumlah & selesaikan pembayaran</p>
+                            </div>
+
+                            {{-- Confirm Payment Button --}}
+                            <form action="{{ route('orders.show', $order->id) }}" method="GET">
+                                <button type="button" id="btn-confirm-payment"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 border border-transparent rounded-xl font-bold text-xs text-white uppercase tracking-widest transition duration-150 shadow-lg shadow-emerald-500/20 cursor-pointer">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Sudah Bayar — Cek Status
+                                </button>
+                            </form>
+
+                            <p class="text-slate-500 text-xs text-center">
+                                Status order akan diupdate otomatis setelah pembayaran dikonfirmasi
+                            </p>
+                        </div>
+
+                        {{-- State: Error --}}
+                        <div id="qris-error" class="hidden p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-center space-y-3">
+                            <svg class="h-8 w-8 text-red-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p id="qris-error-msg" class="text-red-400 text-sm font-semibold"></p>
+                            <button id="btn-retry-qris" class="text-xs text-purple-400 hover:text-purple-300 font-bold underline cursor-pointer">
+                                Coba Lagi
+                            </button>
+                        </div>
                     </div>
+
+                    <script>
+                    (function() {
+                        const btnGenerate  = document.getElementById('btn-generate-qris');
+                        const btnRetry     = document.getElementById('btn-retry-qris');
+                        const btnConfirm   = document.getElementById('btn-confirm-payment');
+                        const stateInitial = document.getElementById('qris-initial');
+                        const stateLoad    = document.getElementById('qris-loading');
+                        const stateDisplay = document.getElementById('qris-display');
+                        const stateError   = document.getElementById('qris-error');
+                        const qrisImg      = document.getElementById('qris-img');
+                        const errorMsg     = document.getElementById('qris-error-msg');
+                        const countdown    = document.getElementById('qris-countdown');
+
+                        let timerInterval = null;
+
+                        function showState(state) {
+                            [stateInitial, stateLoad, stateDisplay, stateError].forEach(el => el.classList.add('hidden'));
+                            state.classList.remove('hidden');
+                        }
+
+                        function startCountdown(minutes) {
+                            let totalSeconds = minutes * 60;
+                            clearInterval(timerInterval);
+                            timerInterval = setInterval(() => {
+                                const m = Math.floor(totalSeconds / 60);
+                                const s = totalSeconds % 60;
+                                countdown.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                                if (totalSeconds <= 0) {
+                                    clearInterval(timerInterval);
+                                    countdown.textContent = 'EXPIRED';
+                                    countdown.classList.replace('text-amber-300', 'text-red-400');
+                                }
+                                totalSeconds--;
+                            }, 1000);
+                        }
+
+                        function generateQris() {
+                            showState(stateLoad);
+
+                            fetch('{{ route('payment.qris', $order->id) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                }
+                            })
+                            .then(res => {
+                                if (!res.ok) return res.json().then(e => { throw new Error(e.message || 'Gagal generate QRIS'); });
+                                return res.json();
+                            })
+                            .then(data => {
+                                qrisImg.src = data.qris_image;
+                                showState(stateDisplay);
+                                startCountdown(15);
+                            })
+                            .catch(err => {
+                                errorMsg.textContent = err.message;
+                                showState(stateError);
+                            });
+                        }
+
+                        btnGenerate.addEventListener('click', generateQris);
+                        btnRetry.addEventListener('click', generateQris);
+
+                        btnConfirm.addEventListener('click', () => {
+                            window.location.reload();
+                        });
+                    })();
+                    </script>
                 @endif
 
                 <!-- Cancellation Form Box -->

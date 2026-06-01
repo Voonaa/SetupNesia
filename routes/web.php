@@ -50,6 +50,7 @@ Route::middleware('auth')->group(function () {
 
     // Payment Endpoints
     Route::post('/payment/snap-token/{order}', [App\Http\Controllers\PaymentController::class, 'getSnapToken'])->name('payment.snap-token');
+    Route::post('/payment/qris/{order}', [App\Http\Controllers\PaymentController::class, 'generateQris'])->name('payment.qris');
     Route::get('/payment/finish', [App\Http\Controllers\PaymentController::class, 'finish'])->name('payment.finish');
     Route::get('/payment/unfinish', [App\Http\Controllers\PaymentController::class, 'unfinish'])->name('payment.unfinish');
     Route::get('/payment/error', [App\Http\Controllers\PaymentController::class, 'error'])->name('payment.error');
