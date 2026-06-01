@@ -72,12 +72,20 @@ class MidtransService
             'enabled_payments' => ['qris'], // Direct restriction to QRIS as per spec
         ];
 
+        // Determine SSL certificate path (fix for environments with incorrect php.ini cacert path)
+        $caInfoPath = ini_get('curl.cainfo') ?: 'C:\laragon\etc\ssl\cacert.pem';
+        if (!file_exists($caInfoPath)) {
+            $caInfoPath = true; // Let Guzzle use system defaults
+        }
+
         // Send POST request utilizing Laravel's Http client
         $response = Http::withHeaders([
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ])
+        ->withOptions(['verify' => $caInfoPath])
         ->withBasicAuth($this->serverKey, '')
+        ->timeout(30)
         ->post($this->snapBaseUrl, $payload);
 
         if ($response->failed()) {
@@ -95,6 +103,7 @@ class MidtransService
         }
 
         return $token;
+
     }
 
     /**
